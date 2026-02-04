@@ -1,18 +1,15 @@
 import pytest
 from typing import Generator
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
-from app.main import app
 from app.db.base import Base
-# Importamos la dependencia que vamos a sobrescribir
+from app.main import app
+from app.api.deps import get_db
 
-from app.api.deps import get_db 
-
-# 1. Configuración DB Temporal (SQLite en memoria)
-
+# 1. Usamos SQLite en memoria para que sea rápido y aislado
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
@@ -22,47 +19,42 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-@pytest.fixture(scope="session")
-def db_engine():
-    """Crea las tablas al inicio de los tests y las borra al final."""
+@pytest.fixture(scope="session", autouse=True)
+def create_test_database():
+    """
+    Crea las tablas UNA vez al inicio de toda la sesión de pruebas.
+    """
     Base.metadata.create_all(bind=engine)
-    yield engine
+    yield
     Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(scope="function")
-def db(db_engine) -> Generator[Session, None, None]:
+def db() -> Generator[Session, None, None]:
     """
-    Crea una sesión nueva para cada test.
+    Crea una sesión nueva para cada test y hace rollback al final.
     """
-    connection = db_engine.connect()
+    # Conectamos y empezamos transacción
+    connection = engine.connect()
     transaction = connection.begin()
     session = TestingSessionLocal(bind=connection)
-    
+
+    # Sobreescribimos la dependencia get_db para usar esta sesión de test
+    def override_get_db():
+        try:
+            yield session
+        finally:
+            pass # No cerramos aquí, lo manejamos abajo
+
+    app.dependency_overrides[get_db] = override_get_db
+
     yield session
-    
+
+    # Limpieza tras el test
     session.close()
     transaction.rollback()
     connection.close()
 
 @pytest.fixture(scope="module")
 def client() -> Generator[TestClient, None, None]:
-    """
-    Crea un cliente HTTP simulado.
-    Sobrescribe la dependencia de base de datos para usar la SQLite de prueba.
-    """
-    def override_get_db():
-        try:
-            db = TestingSessionLocal()
-            yield db
-        finally:
-            db.close()
-
-    # Aquí ocurre la magia: le decimos a FastAPI que use nuestra DB falsa
-    app.dependency_overrides[get_db] = override_get_db
-    
     with TestClient(app) as c:
         yield c
-    
-    # Limpiamos después de los tests
-    app.dependency_overrides.clear()
-
