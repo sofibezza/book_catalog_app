@@ -1,10 +1,12 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session # Importamos Session
 from app.core.config import settings
 from app.utils.google_books import google_books_client
 from app.schemas.book import GoogleBookResult
+import httpx
 
+GOOGLE_SEARCH_URL = f"{settings.API_V1_STR}/book/search"
 # ------------------------------------------------------------------
 # Helper de Autenticación
 # ------------------------------------------------------------------
@@ -54,7 +56,7 @@ def test_search_google_books_success(client: TestClient, db: Session):
         mock_method.return_value = mock_results
         
         response = client.get(
-            f"{settings.API_V1_STR}/book/search", 
+            GOOGLE_SEARCH_URL, 
             headers=headers,
             params={"q": "python"}
         )
@@ -75,7 +77,7 @@ def test_search_google_books_empty(client: TestClient, db: Session):
         mock_method.return_value = []
         
         response = client.get(
-            f"{settings.API_V1_STR}/book/search", 
+            GOOGLE_SEARCH_URL, 
             headers=headers,
             params={"q": "vacio"}
         )
@@ -86,18 +88,30 @@ def test_search_google_books_empty(client: TestClient, db: Session):
 
 def test_search_google_books_error_handling(client: TestClient, db: Session):
     """
-    Prueba manejo de errores internos.
+    Prueba que GoogleBooksClient captura errores de red y devuelve lista vacía.
     """
     headers = get_auth_headers(client)
     
-    with patch.object(google_books_client, 'search_books', new_callable=AsyncMock) as mock_method:
-        mock_method.side_effect = Exception("Google API Down")
-        try:
-            response = client.get(
-                f"{settings.API_V1_STR}/book/search", 
-                headers=headers,
-                params={"q": "error"}
-            )
-        except Exception:
-    
-            pass
+    with patch("app.utils.google_books.httpx.AsyncClient") as MockClient:
+        # Configuración del Mock:
+        # Obtenemos la instancia que devuelve el contexto (async with ...)
+        mock_instance = MockClient.return_value.__aenter__.return_value
+        
+        # Hacemos que el método .get() de esa instancia falle
+        mock_instance.get.side_effect = httpx.RequestError("Google Down", request=None)
+
+        # Hacemos la llamada real a la API
+        response = client.get(
+            GOOGLE_SEARCH_URL, 
+            headers=headers,
+            params={"q": "error"}
+        )
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+def test_search_google_books_no_query(client: TestClient, db: Session):
+    headers = get_auth_headers(client)
+
+    res = client.get(GOOGLE_SEARCH_URL, headers=headers)
+    assert res.status_code in (400, 422)

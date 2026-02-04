@@ -1,26 +1,33 @@
+import time
 from contextlib import asynccontextmanager
-from app.api.routes import book_route
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import time
 
 from app.core.config import settings
-from app.core.logging_config import logger # <--- Importamos nuestro logger
-from app.api.routes import user_route 
+from app.core.logging_config import logger
 from app.db.session import engine
 from app.db.base import Base
 
-# Modelos
+# Importamos las rutas
+from app.api.routes import user_route 
+from app.api.routes import book_route
+
+# Importamos modelos para asegurar que SQLAlchemy los detecte al crear tablas
 from app.models.user import User
 from app.models.book import Book
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 Iniciando aplicación Book Tracker...")
+    """
+    Ciclo de vida de la aplicación.
+    Se ejecuta al iniciar y al apagar el servidor.
+    """
+    logger.info("Iniciando aplicación Book Tracker...")
+    # Crea las tablas en la DB si no existen
     Base.metadata.create_all(bind=engine)
     yield
-    logger.info("🛑 Deteniendo aplicación...")
+    logger.info("Deteniendo aplicación...")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -28,20 +35,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# --- CONFIGURACIÓN CORS (Frontend) ---
+# Comunicacion Backend
+origins = [
+    "http://localhost:3000",    # Frontend local
+    "http://127.0.0.1:3000",  # Frontend local (IP)
+    "http://localhost:5500",    # Frontend local
+    "http://127.0.0.1:5500"  # Frontend local (IP)
+               
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,      # Lista de orígenes permitidos
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],        # Permitir todos los métodos
+    allow_headers=["*"],        # Permitir todos los headers
 )
 
-# --- 🛡️ GLOBAL EXCEPTION HANDLER ---
-# Esto atrapa errores no controlados (bugs, crash de DB, etc)
+# --- GLOBAL EXCEPTION HANDLER & LOGGING ---
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """Loguea cada petición y su tiempo de ejecución."""
+    """Loguea cada petición, su tiempo de ejecución y captura errores no controlados."""
     start_time = time.time()
     try:
         response = await call_next(request)
@@ -49,7 +64,7 @@ async def log_requests(request: Request, call_next):
         logger.info(f"Path: {request.url.path} - Method: {request.method} - Status: {response.status_code} - Time: {process_time:.4f}s")
         return response
     except Exception as e:
-        # Si ocurre un error catastrófico, lo logueamos aquí
+        # Si ocurre un error catastrófico (bug de código, fallo DB), lo atrapamos aquí
         process_time = time.time() - start_time
         logger.error(f" CRITICAL ERROR en {request.url.path}: {str(e)}", exc_info=True)
         return JSONResponse(
@@ -57,7 +72,7 @@ async def log_requests(request: Request, call_next):
             content={"detail": "Internal Server Error. Please contact support."}
         )
 
-# Rutas
+# --- RUTAS ---
 app.include_router(user_route.router, prefix=f"{settings.API_V1_STR}/user", tags=["user"])
 app.include_router(book_route.router, prefix=f"{settings.API_V1_STR}/book", tags=["book"])
 

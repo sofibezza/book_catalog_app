@@ -76,3 +76,12 @@ def test_read_current_user_me(client: TestClient, db: Session):
     
     assert response.status_code == 200
     assert response.json()["email"] == email
+
+def test_register_invalid_email(client: TestClient, db: Session):
+    data = {
+        "email": "esto-no-es-un-email",
+        "username": "bademail",
+        "password": "password123"
+    }
+    response = client.post(REGISTER_URL, json=data)
+    assert response.status_code == 422

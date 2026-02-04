@@ -32,52 +32,69 @@ class BookService:
             .all()
         )
 
+
     @staticmethod
     def create(db: Session, obj_in: BookCreate, user_id: int) -> Book:
-        """REQ: Guardar libro (Estado inicial Pending)."""
-        logger.info(f"User {user_id} guardando libro: {obj_in.title}")
-        
+        """REQ: Guardar libro con validaciones individuales de duplicados."""
+        logger.info(f"User {user_id} intentando guardar libro: {obj_in.title}")
+
+        # 1. VALIDACIÓN POR ISBN
+        if obj_in.isbn:
+            isbn_exists = db.query(Book).filter(
+                Book.user_id == user_id, 
+                Book.isbn == obj_in.isbn
+            ).first()
+            
+            if isbn_exists:
+                raise ValueError("Ya tienes un libro registrado con este ISBN.")
+
+        # VALIDACIÓN POR TÍTULO Y AUTOR (evita duplicados manuales)
+        title_author_exists = db.query(Book).filter(
+            Book.user_id == user_id,
+            Book.title == obj_in.title,
+            Book.author == obj_in.author
+        ).first()
+
+        if title_author_exists:
+            raise ValueError("Este libro (mismo título y autor) ya está en tu lista.")
+
         db_obj = Book(**obj_in.model_dump(), user_id=user_id)
-        # Aseguramos que el estado inicial sea pending si no viene definido
         if not db_obj.status:
             db_obj.status = "pending"
-        
+
         try:
             db.add(db_obj)
             db.commit()
             db.refresh(db_obj)
             return db_obj
-        
-        except IntegrityError:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Este libro ya existe en tu lista."
-            )
         except Exception as e:
             db.rollback()
-            logger.error(f"Error DB: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No se pudo guardar el libro."
-            )
+            logger.error(f"Error inesperado en DB: {e}")
+            raise RuntimeError("No se pudo guardar el libro por un error interno.")
 
     @staticmethod
     def update(db: Session, db_obj: Book, obj_in: dict) -> Book:
-        """REQ: Actualizar (ej. marcar como Leído)."""
-        for field, value in obj_in.items():
-            setattr(db_obj, field, value)
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
+        try:
+            for field, value in obj_in.items():
+                setattr(db_obj, field, value)
+                db.commit()
+                db.refresh(db_obj)
+            return db_obj
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Error al actualizar libro {db_obj.id}: {e}")
+            raise RuntimeError("No se pudo actualizar el libro.")
 
     @staticmethod
     def delete(db: Session, db_obj: Book) -> Book:
-        """REQ: Borrar libro de la lista."""
-        db.delete(db_obj)
-        db.commit()
-        return db_obj
+        try:
+            db.delete(db_obj)
+            db.commit()
+            return db_obj
+        except SQLAlchemyError as e:
+            db.rollback()
+            logger.error(f"Error al borrar libro {db_obj.id}: {e}")
+            raise RuntimeError("No se pudo eliminar el libro.")
 
-# Instancia para importar en rutas
+
 book_service = BookService()

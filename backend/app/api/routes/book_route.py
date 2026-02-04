@@ -14,10 +14,15 @@ async def search_external_books(
     q: str = Query(..., min_length=2),
     limit: int = Query(5, le=20),
 ) -> Any:
-    """Busca en Google Books. Solo usuarios logueados."""
-    return await google_books_client.search_books(query=q, limit=limit)
-
-
+    try:
+        return await google_books_client.search_books(query=q, limit=limit)
+        
+    except Exception as e:
+        logger.error(f"Error al buscar en Google Books: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El servicio de búsqueda no está disponible en este momento. Inténtalo más tarde."
+        )
 @router.get("/", response_model=List[BookResponse])
 def read_books(
     db: SessionDep,
@@ -26,21 +31,28 @@ def read_books(
     limit: int = 100,
 ) -> Any:
     """Lista todos los libros guardados del usuario actual."""
-    return book_service.get_user_book_list(db, user_id=current_user.id, skip=skip, limit=limit)
-
-
+    try:
+        return book_service.get_user_book_list(db, user_id=current_user.id, skip=skip, limit=limit)
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=str(e)
+        )
 @router.post("/", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
 def create_book(
-    *,
-    db: SessionDep,
     book_in: BookCreate,
+    db: SessionDep,
     current_user: CurrentUser,
-) -> Any:
-    """Guarda un libro en la colección."""
-    if not book_in.title:
-        raise HTTPException(status_code=400, detail="El libro debe tener título")
+):
+    try:
+        return book_service.create(db=db, obj_in=book_in, user_id=current_user.id)
         
-    return book_service.create(db=db, obj_in=book_in, user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
+
 
 @router.patch("/{book_id}", response_model=BookResponse)
 def update_book(
