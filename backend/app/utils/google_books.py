@@ -1,7 +1,7 @@
 import httpx
 from typing import List, Optional
 from app.schemas.book import GoogleBookResult
-from app.core.logging_config import logger  # <--- Importar Logger
+from app.core.logging_config import logger
 
 class GoogleBooksClient:
     BASE_URL = "https://www.googleapis.com/books/v1/volumes"
@@ -30,14 +30,14 @@ class GoogleBooksClient:
                 return self._parse_items(data.get("items", []))
 
             except httpx.TimeoutException:
-                logger.error(f"⏳ Timeout conectando a Google Books para query: {query}")
+                logger.error(f"Timeout conectando a Google Books para query: {query}")
                 return []
             except httpx.RequestError as e:
                 # Loguea el error completo con stack trace
-                logger.error(f"❌ Error de red conectando a Google Books: {e}", exc_info=True)
+                logger.error(f"Error de red conectando a Google Books: {e}", exc_info=True)
                 return []
             except Exception as e:
-                logger.error(f"❌ Error inesperado parseando Google Books: {e}", exc_info=True)
+                logger.error(f"Error inesperado parseando Google Books: {e}", exc_info=True)
                 return []
 
     def _parse_items(self, items: List[dict]) -> List[GoogleBookResult]:
@@ -56,7 +56,7 @@ class GoogleBooksClient:
                 ))
             except Exception as e:
                 # Si un libro falla, logueamos pero seguimos con el siguiente (Resiliencia)
-                logger.warning(f"⚠️ Error parseando un libro individual: {e}")
+                logger.warning(f"Error parseando un libro individual: {e}")
                 continue
         return results
 
