@@ -11,7 +11,7 @@ from app.models.user import User
 
 # OAuth2 estándar: espera un header Authorization: Bearer <token>
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login"
+    tokenUrl=f"{settings.API_V1_STR}/user/login"
 )
 
 def get_db() -> Generator:
