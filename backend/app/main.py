@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from app.api.routes import book
+from app.api.routes import book_route
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,7 +7,7 @@ import time
 
 from app.core.config import settings
 from app.core.logging_config import logger # <--- Importamos nuestro logger
-from app.api.routes import user 
+from app.api.routes import user_route 
 from app.db.session import engine
 from app.db.base import Base
 
@@ -58,8 +58,8 @@ async def log_requests(request: Request, call_next):
         )
 
 # Rutas
-app.include_router(user.router, prefix=f"{settings.API_V1_STR}/user", tags=["user"])
-app.include_router(book.router, prefix=f"{settings.API_V1_STR}/book", tags=["book"])
+app.include_router(user_route.router, prefix=f"{settings.API_V1_STR}/user", tags=["user"])
+app.include_router(book_route.router, prefix=f"{settings.API_V1_STR}/book", tags=["book"])
 
 @app.get("/health", tags=["status"])
 def health_check():
