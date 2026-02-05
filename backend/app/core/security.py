@@ -1,0 +1,39 @@
+from datetime import datetime, timedelta, timezone
+from typing import Any, Union
+from jose import jwt
+from passlib.context import CryptContext
+from app.core.config import settings
+
+# Configuración de hashing (Bcrypt es el estándar robusto)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def create_access_token(subject: Union[str, Any]) -> str:
+    """Crea un JWT firmado con expiración."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode = {"exp": expire, "sub": str(subject)}
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifica si la contraseña en texto plano coincide con la contraseña hasheada.
+    
+    Args:
+        plain_password (str): La contraseña en texto plano.
+        hashed_password (str): La contraseña hasheada.
+    
+    Returns:
+        bool: True si la contraseña coincide, False en caso contrario.
+    """
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    """
+    Crea un hash de la contraseña para almacenarla de manera segura.
+    
+    Args:
+        password (str): La contraseña en texto plano.
+    
+    Returns:
+        str: La contraseña hasheada.
+    """
+    return pwd_context.hash(password)

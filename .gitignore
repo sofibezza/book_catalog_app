@@ -1,0 +1,16 @@
+# Variables de entorno (Contraseñas)
+.env
+.env.local
+
+# Docker
+.docker/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Reportes de cobertura y tests
+.pytest_cache/
+.coverage
+htmlcov/
