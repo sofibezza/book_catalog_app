@@ -41,14 +41,14 @@ jobs:
 
       - name: Run Tests with Coverage
         env:
-          # Inyecta los secretos que guardaste en la interfaz de GitHub
+          # Inyecta los secretos guardados en github
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          # Variables de conexión para el servicio de arriba
           POSTGRES_SERVER: localhost
           POSTGRES_PORT: 5432
+          DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/${{ secrets.POSTGRES_DB }}
           PROJECT_NAME: "Personal Book Tracker"
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
