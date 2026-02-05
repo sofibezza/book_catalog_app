@@ -1,4 +1,4 @@
-name: Python CI/CD - Book Tracker
+name: CI/CD - Book App
 
 on:
   push:
@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # Levanta una base de datos temporal en la nube de GitHub para los tests
       postgres:
         image: postgres:15
         env:
@@ -39,22 +38,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/app/requirements.txt
 
-
       - name: Debug Environment
-              run: |
-                echo "Usuario detectado: $POSTGRES_USER"
-                echo "Servidor: $POSTGRES_SERVER"
-                echo "Python Path: $PYTHONPATH"
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_SERVER: localhost
+        run: |
+          echo "Usuario detectado: $POSTGRES_USER"
+          echo "Servidor: $POSTGRES_SERVER"
+          echo "Python Path: $PYTHONPATH"
+          echo "Directorio actual: $(pwd)"
 
       - name: Run Tests with Coverage
         env:
-          # Inyecta los secretos guardados en github
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_SERVER: localhost
           POSTGRES_PORT: 5432
+          # Construcción de la URL de base de datos para evitar el usuario 'runner'
           DATABASE_URL: postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/${{ secrets.POSTGRES_DB }}
           PROJECT_NAME: "Personal Book Tracker"
         run: |
