@@ -15,7 +15,7 @@ reusable_oauth2 = OAuth2PasswordBearer(
 )
 
 def get_db() -> Generator:
-    """Dependency Injection para DB Session."""
+    """Obtiene una sesión de la base de datos."""   
     try:
         db = SessionLocal()
         yield db
@@ -26,7 +26,15 @@ SessionDep = Annotated[Session, Depends(get_db)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
 def get_current_user(session: SessionDep, token: TokenDep) -> User:
-    """Valida el token JWT y recupera el usuario actual."""
+    """
+    Devuelve el usuario actual basado en el token de autenticación.
+    Lanza una excepción HTTP 401 si no se puede validar el token o no se encuentra el usuario.
+
+    :param session: La sesión de la base de datos.
+    :param token: El token de autenticación.
+    :return: El usuario actual.
+    :raises HTTPException: Si no se puede validar el token o no se encuentra el usuario.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

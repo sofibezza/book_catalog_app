@@ -12,6 +12,21 @@ BOOKS_URL = f"{settings.API_V1_STR}/book/"
 # Helper de Autenticación
 # ------------------------------------------------------------------
 def get_superuser_token_headers(client: TestClient) -> dict:
+    """
+    Helper para obtener el token de autenticación de un usuario administrador.
+    
+    Se intenta loguear con el usuario administrador, si falla, se registra y
+    luego se loguea para obtener el token.
+    
+    Args:
+        client (TestClient): El cliente de FastAPI para realizar peticiones.
+
+    Returns:
+        dict: El token de autenticación en formato JSON.
+
+    Raises:
+        ValueError: Si ocurre un error interno al procesar la petición.
+    """
     email = "admin@test.com"
     password = "password123"
     
@@ -35,7 +50,13 @@ def get_superuser_token_headers(client: TestClient) -> dict:
 # ------------------------------------------------------------------
 
 def test_save_book_initial_status(client: TestClient, db: Session):
-    """Verifica que se guarda y el estado inicial es 'pending'."""
+    """
+    Verifica que cuando se crea un libro, su estado inicial es 'pending'.
+    
+    Args:
+        client (TestClient): El cliente de FastAPI para realizar peticiones.
+        db (Session): La sesión de base de datos para realizar operaciones.
+    """
     headers = get_superuser_token_headers(client)
     data = {
         "title": f"Libro {uuid.uuid4()}",
@@ -49,7 +70,15 @@ def test_save_book_initial_status(client: TestClient, db: Session):
     assert response.json()["status"] == "pending"
 
 def test_list_books(client: TestClient, db: Session):
-    """Verifica que devuelve una lista."""
+    """
+    Verifica que se pueda obtener una lista de libros.
+    
+    Primero se crea un libro para asegurar que haya datos.
+    Luego se realiza una petición GET a la ruta de libros y se verifica que:
+    - La petición devuelve un status code 200.
+    - La respuesta es una lista.
+    - La lista tiene al menos un elemento.  
+    """
     headers = get_superuser_token_headers(client)
     # Creamos uno para asegurar datos
     client.post(BOOKS_URL, headers=headers, json={"title": "Lista", "author": "X", "isbn": f"L-{uuid.uuid4()}"})
@@ -60,7 +89,14 @@ def test_list_books(client: TestClient, db: Session):
     assert len(response.json()) >= 1
 
 def test_update_book_status(client: TestClient, db: Session):
-    """Verifica que se puede cambiar a 'read'."""
+    """
+    Verifica que se pueda actualizar el estado de un libro.
+
+    Primero se crea un libro para asegurar que haya datos.
+    Luego se realiza una petición PATCH a la ruta de libros con el ID del libro
+    y se actualiza el estado a 'read'. Se verifica que la petición devuelve un status
+    code 200 y que el estado del libro se actualizó correctamente.
+    """
     headers = get_superuser_token_headers(client)
     
     # Crear
@@ -79,7 +115,13 @@ def test_update_book_status(client: TestClient, db: Session):
     assert response.json()["status"] == "read"
 
 def test_delete_book(client: TestClient, db: Session):
-    """Verifica que se elimina de la lista."""
+    """
+    Verifica que se pueda eliminar un libro.
+    
+    Primero se crea un libro para asegurar que haya datos.
+    Luego se realiza una petición DELETE a la ruta de libros con el ID del libro.
+    Se verifica que la petición devuelve un status code 200 y que el libro ya no está en la lista.
+    """
     headers = get_superuser_token_headers(client)
     create_res = client.post(BOOKS_URL, headers=headers, json={
         "title": "Delete Me", "author": "Me", "isbn": f"DEL-{uuid.uuid4()}"
@@ -97,8 +139,14 @@ def test_delete_book(client: TestClient, db: Session):
 
 def test_create_book_success(client: TestClient, db: Session):
     """
-    Prueba que enviando los campos obligatorios (title, author) el libro se crea.
+    Verifica que se pueda crear un libro correctamente.
+
+    Primero se crea un libro con título y autor correctos.
+    Luego se verifica que la petición devuelve un status code 201 y
+    que el contenido de la respuesta JSON coincide con los datos
+    enviados en el cuerpoo de la petición.
     """
+
     headers = get_superuser_token_headers(client)
     data = {
         "title": f"Libro Correcto {uuid.uuid4()}",
@@ -115,7 +163,12 @@ def test_create_book_success(client: TestClient, db: Session):
     assert content["id"] is not None
 
 def test_list_books_pagination(client: TestClient, db: Session):
-    """Verifica que el limit y skip funcionan."""
+    """
+    Verifica que se pueda obtener una lista de libros con paginación.
+    
+    Se crean 15 libros y se verifica que la petición GET con limit=5
+    devuelve una lista de 5 elementos.
+    """
     headers = get_superuser_token_headers(client)
     
     for i in range(15):
@@ -138,7 +191,10 @@ def test_list_books_pagination(client: TestClient, db: Session):
 
 def test_create_book_missing_fields(client: TestClient, db: Session):
     """
-    Prueba que si faltan campos obligatorios (title, author), la API devuelve error.
+    Verifica que no puedes crear un libro sin título o autor.
+
+    Se crean dos libros, uno con título y otro con autor, y se verifica
+    que la petición GET con limit=5 devuelve una lista de 5 elementos.
     """
     headers = get_superuser_token_headers(client)
 
@@ -156,7 +212,14 @@ def test_create_book_missing_fields(client: TestClient, db: Session):
     assert response_2.status_code == 422
 
 def test_create_duplicate_book_fails(client: TestClient, db: Session):
-    """Verifica que no puedes guardar el mismo libro dos veces."""
+    """
+    Verifica que no puedes crear un libro con un ISBN duplicado.
+
+    Se crea un libro con título, autor e ISBN, y se verifica que la
+    petición POST con los mismos datos falla con un status code de 409
+    y un mensaje de error que indica que el ISBN ya existe en la
+    lista del usuario.
+    """
     headers = get_superuser_token_headers(client)
     uid = uuid.uuid4()
     book_data = {
@@ -175,6 +238,13 @@ def test_create_duplicate_book_fails(client: TestClient, db: Session):
     assert "Ya tienes un libro registrado con este ISBN." in res2.json()["detail"]
 
 def test_update_book_not_found(client: TestClient, db: Session):
+    """
+    Verifica que no puedes actualizar un libro que no existe.
+
+    Se intenta actualizar un libro con un ID inexistente, y se verifica que
+    la petición PATCH falla con un status code de 404 y un mensaje de error
+    que indica que el libro no existe en la lista del usuario.
+    """
     headers = get_superuser_token_headers(client)
     fake_id = 999999
     
@@ -186,6 +256,14 @@ def test_update_book_not_found(client: TestClient, db: Session):
     assert response.status_code == 404
 
 def test_delete_book_not_found(client: TestClient, db: Session):
+    """
+    Verifica que no puedes eliminar un libro que no existe.
+
+    Se intenta eliminar un libro con un ID inexistente, y se verifica que
+    la petición DELETE falla con un status code de 404 y un mensaje de error
+    que indica que el libro no existe en la lista del usuario.
+    """
+
     headers = get_superuser_token_headers(client)
     fake_id = 999999
     
@@ -196,14 +274,34 @@ def test_delete_book_not_found(client: TestClient, db: Session):
     assert response.status_code == 404
 
 def test_books_requires_auth(client: TestClient):
+    """
+    Verifica que la petición GET a la ruta de libros requiere autenticación.
+
+    Se realiza una petición GET a la ruta de libros sin autenticación y se
+    verifica que la petición falla con un status code de 401.
+    """
+
     res = client.get(f"{settings.API_V1_STR}/book/")
     assert res.status_code == 401
 
 def test_create_book_requires_auth(client: TestClient):
+    """
+    Verifica que la petición POST a la ruta de libros requiere autenticación.
+
+    Se intenta crear un libro sin autenticación y se verifica que la
+    petición POST falla con un status code de 401.
+    """
     res = client.post(f"{settings.API_V1_STR}/book/", json={"title": "X", "author": "Y"})
     assert res.status_code == 401
 def test_create_duplicate_book_manual_fails(client: TestClient, db: Session):
+    """
+    Verifica que no puedes crear un libro con título y autor duplicados manualmente.
 
+    Se crea un libro con título y autor correctos.
+    Luego se intenta crear otro libro con los mismos datos y se verifica que
+    la petición POST falla con un status code de 409 y un mensaje de error
+    que indica que el libro ya existe en la lista del usuario.
+    """
     headers = get_superuser_token_headers(client)
     uid = uuid.uuid4()
     
@@ -224,6 +322,14 @@ def test_create_duplicate_book_manual_fails(client: TestClient, db: Session):
     assert "Este libro (mismo título y autor) ya está en tu lista." in res2.json()["detail"]
 def test_user_only_sees_own_books(client: TestClient, db: Session):
     # Admin crea libro
+    """
+    Verifica que cada usuario solo ve sus propios libros.
+    
+    Se crea un libro con título y autor correctos con la cuenta de Admin.
+    Luego se loguea con la cuenta de Hacker y se verifica que la petición
+    GET a la ruta de libros devuelve una lista vacía, lo que indica que
+    cada usuario solo ve sus propios libros.
+    """
     headers_admin = get_superuser_token_headers(client)
     client.post(f"{settings.API_V1_STR}/book/", headers=headers_admin, json={
         "title": "Private", "author": "Admin"

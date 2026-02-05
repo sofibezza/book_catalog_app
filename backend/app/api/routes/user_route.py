@@ -14,18 +14,28 @@ def register_user(
     db: SessionDep,
     user_in: UserCreate,
 ) -> Any:
+
     """
-    Registra un nuevo usuario.
+    Register a new user.
+
+    Args:
+        db (SessionDep): The database session.
+        user_in (UserCreate): The user to register.
+
+    Returns:
+        UserResponse: The registered user.
+
+    Raises:
+        HTTPException: If the user with the same email already exists in the system.
     """
-    # 1. Verificar si el usuario ya existe
+
     user = user_service.get_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system.",
         )
-    
-    # 2. Crear usuario
+
     user = user_service.create(db, obj_in=user_in)
     return user
 
@@ -35,11 +45,21 @@ def login_access_token(
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
-    Login para obtener el token JWT.
-    IMPORTANTE: OAuth2 especifica que el campo se debe llamar 'username',
-    pero nosotros esperamos el EMAIL en ese campo.
+    Autenticamos al usuario con el email y contraseña proporcionados.
+
+    Args:
+        db (SessionDep): La sesión de la base de datos.
+        form_data (OAuth2PasswordRequestForm): Los datos de autenticación.
+
+    Returns:
+        Token: El token de acceso del usuario autenticado.
+
+    Raises:
+        HTTPException: Si el usuario no existe o si la contraseña es incorrecta.
+        HTTPException: Si el usuario no está activo.
     """
-    # 3. Autenticamos usando form_data.username como si fuera el email
+    #  Autenticamos usando form_data.username como si fuera el email
+
     user = user_service.authenticate(
         db, email=form_data.username, password=form_data.password
     )
@@ -51,7 +71,7 @@ def login_access_token(
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
 
-    # 4. Generamos el token de acceso usando el ID del usuario
+    #  Generamos el token de acceso usando el ID del usuario
     return {
         "access_token": security.create_access_token(user.id),
         "token_type": "bearer",
@@ -60,6 +80,10 @@ def login_access_token(
 @router.get("/me", response_model=UserResponse)
 def read_users_me(current_user: CurrentUser) -> Any:
     """
-    Obtiene el usuario actual basado en el Token enviado en el Header.
+    Return the current user.
+
+    Returns:
+        UserResponse: The current user.
     """
+
     return current_user
