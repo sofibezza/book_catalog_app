@@ -15,7 +15,25 @@ def create_access_token(subject: Union[str, Any]) -> str:
     return encoded_jwt
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifica si la contraseña en texto plano coincide con la contraseña hasheada.
+    
+    Args:
+        plain_password (str): La contraseña en texto plano.
+        hashed_password (str): La contraseña hasheada.
+    
+    Returns:
+        bool: True si la contraseña coincide, False en caso contrario.
+    """
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
+    """
+    Crea un hash de la contraseña para almacenarla de manera segura.
+    
+    Args:
+        password (str): La contraseña en texto plano.
+    
+    Returns:
+        str: La contraseña hasheada.
+    """
     return pwd_context.hash(password)

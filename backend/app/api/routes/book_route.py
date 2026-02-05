@@ -15,6 +15,19 @@ async def search_external_books(
     q: str = Query(..., min_length=2),
     limit: int = Query(5, le=20),
 ) -> Any:
+    """
+    Realiza una búsqueda en Google Books con la query proporcionada y
+    devuelve una lista de resultados.
+
+    Args:
+        current_user (CurrentUser): El usuario que realiza la petición.
+        q (str): La query de búsqueda.
+        limit (int): El límite de resultados a devolver. Debe estar
+            entre 1 y 20.
+
+    Returns:
+        List[GoogleBookResult]: La lista de resultados de la búsqueda.
+    """
     try:
         return await google_books_client.search_books(query=q, limit=limit)
     except HTTPException as http_exc:
@@ -32,7 +45,21 @@ def read_books(
     skip: int = 0,
     limit: int = 100,
 ) -> Any:
-    """Lista todos los libros guardados del usuario actual."""
+    """
+    Lee la lista de libros del usuario actual.
+
+    Args:
+        db (SessionDep): La sesión de la base de datos.
+        current_user (CurrentUser): El usuario que realiza la petición.
+        skip (int): El número de elementos a saltar al principio de la lista.
+        limit (int): El límite de elementos a devolver en la lista.
+
+    Returns:
+        List[BookResponse]: La lista de libros del usuario actual.
+
+    Raises:
+        HTTPException: Si ocurre un error interno al procesar la petición.
+    """
     try:
         return book_service.get_user_book_list(db, user_id=current_user.id, skip=skip, limit=limit)
     except RuntimeError as e:
@@ -46,6 +73,20 @@ def create_book(
     db: SessionDep,
     current_user: CurrentUser,
 ):
+    """
+    Crea un nuevo libro en la lista del usuario actual.
+
+    Args:
+        book_in (BookCreate): El objeto con los datos del libro a crear.
+        db (SessionDep): La sesión de la base de datos.
+        current_user (CurrentUser): El usuario que realiza la petición.
+
+    Returns:
+        BookResponse: El libro creado.
+
+    Raises:
+        HTTPException: Si el libro ya existe en la lista del usuario.
+    """
     try:
         return book_service.create(db=db, obj_in=book_in, user_id=current_user.id)
         
@@ -64,13 +105,25 @@ def update_book(
     book_in: BookUpdate,
     current_user: CurrentUser,
 ) -> Any:
-    """Actualiza el estado (ej. a 'read')."""
-    # 1. Validar propiedad
+    """
+    Actualiza un libro en la lista del usuario actual.
+
+    Args:
+        db (SessionDep): La sesión de la base de datos.
+        book_id (int): El ID del libro a actualizar.
+        book_in (BookUpdate): El objeto con los datos del libro a actualizar.
+        current_user (CurrentUser): El usuario que realiza la petición.
+
+    Returns:
+        BookResponse: El libro actualizado.
+
+    Raises:
+        HTTPException: Si el libro no existe o no autorizado.
+    """
     book = book_service.get_by_id(db, book_id=book_id, user_id=current_user.id)
     if not book:
         raise HTTPException(status_code=404, detail="Libro no encontrado o no autorizado")
     
-    # 2. Actualizar
     return book_service.update(
         db,
         db_obj=book,
@@ -85,11 +138,23 @@ def delete_book(
     book_id: int,
     current_user: CurrentUser,
 ) -> Any:
-    """Elimina un libro de la lista."""
-    # 1. Validar propiedad
+   
+    """
+    Elimina un libro de la lista del usuario actual.
+
+    Args:
+        db (SessionDep): La sesión de la base de datos.
+        book_id (int): El ID del libro a eliminar.
+        current_user (CurrentUser): El usuario que realiza la petición.
+
+    Returns:
+        BookResponse: El libro eliminado.
+
+    Raises:
+        HTTPException: Si el libro no existe o no autorizado.
+    """
     book = book_service.get_by_id(db, book_id=book_id, user_id=current_user.id)
     if not book:
         raise HTTPException(status_code=404, detail="Libro no encontrado o no autorizado")
     
-    # 2. Eliminar
     return book_service.delete(db, db_obj=book)
