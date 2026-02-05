@@ -11,3 +11,5 @@ pytest
 httpx
 email-validator
 bcrypt==4.0.1
+pytest-cov
+pytest-asyncio

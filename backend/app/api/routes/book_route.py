@@ -4,7 +4,8 @@ from app.api.deps import SessionDep, CurrentUser
 from app.schemas.book import BookCreate, BookResponse, BookUpdate, GoogleBookResult
 from app.services.book_service import book_service
 from app.utils.google_books import google_books_client 
-
+import logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -16,12 +17,13 @@ async def search_external_books(
 ) -> Any:
     try:
         return await google_books_client.search_books(query=q, limit=limit)
-        
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
-        logger.error(f"Error al buscar en Google Books: {e}")
+        logger.error(f"Error inesperado al buscar en Google Books: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="El servicio de búsqueda no está disponible en este momento. Inténtalo más tarde."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ocurrió un error interno al procesar la búsqueda externa."
         )
 @router.get("/", response_model=List[BookResponse])
 def read_books(
