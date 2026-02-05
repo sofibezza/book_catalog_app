@@ -17,3 +17,5 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzA4NDYyNzgsInN1YiI6Ijk0MmVjZjY
 docker-compose exec api pytest app/tests/test_integration_google.py -v -s
 # Dentro de la carpeta /frontend
 python -m http.server 3000
+docker-compose exec api pytest
+docker-compose exec api pytest --cov=app --cov-report=term-missing

@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master, develop]
+    branches: [ main, master, develop ]
 
 jobs:
   test:
@@ -52,4 +52,4 @@ jobs:
           PROJECT_NAME: "Personal Book Tracker"
         run: |
           export PYTHONPATH=$PYTHONPATH:$(pwd)/backend
-          pytest backend/app/tests/ --cov=backend/app --cov-report=term-missinggit
+          pytest backend/app/tests/ --cov=backend/app --cov-report=term-missing
