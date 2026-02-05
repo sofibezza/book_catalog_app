@@ -1,5 +1,16 @@
-__pycache__/
-*.pyc
+# Variables de entorno (Contraseñas)
 .env
-.venv/
-pgdata/
+.env.local
+
+# Docker
+.docker/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Reportes de cobertura y tests
+.pytest_cache/
+.coverage
+htmlcov/

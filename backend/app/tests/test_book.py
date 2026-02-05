@@ -133,7 +133,7 @@ def test_list_books_pagination(client: TestClient, db: Session):
     assert len(data) == 5
 
 # ------------------------------------------------------------------
-# 2. TESTS DE ERRORES Y SEGURIDAD (Sad Path)
+# 2. TESTS DE ERRORES Y SEGURIDAD
 # ------------------------------------------------------------------
 
 def test_create_book_missing_fields(client: TestClient, db: Session):
